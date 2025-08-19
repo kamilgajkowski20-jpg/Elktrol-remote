@@ -1,0 +1,56 @@
+name: Build from ZIP (APK + AAB)
+
+on:
+  workflow_dispatch:
+
+env:
+  # 👇 PODAJ DOKŁADNĄ NAZWĘ TWOJEGO ZIP-A (tę, którą wrzuciłeś do repo)
+  ZIP_NAME: "ElkotrolRemote_Studio_CI_Release_FULL_BLE_APK_AAB.zip"
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+
+      - name: Unpack project ZIP
+        run: unzip -q "$ZIP_NAME" -d appsrc
+
+      # AGP 3.5.3 wymaga JDK 8
+      - name: Set up JDK 8
+        uses: actions/setup-java@v4
+        with:
+          distribution: zulu
+          java-version: 8
+
+      - name: Set up Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: Install SDK packages (API 29 + Build-tools 29.0.3)
+        run: |
+          sdkmanager --install "platform-tools" "platforms;android-29" "build-tools;29.0.3"
+
+      - name: Install Gradle 5.6.4
+        run: |
+          curl -L https://services.gradle.org/distributions/gradle-5.6.4-bin.zip -o gradle.zip
+          unzip -q gradle.zip
+          echo "$PWD/gradle-5.6.4/bin" >> $GITHUB_PATH
+
+      - name: Build Debug APK
+        run: gradle -p appsrc :app:assembleDebug
+
+      - name: Upload Debug APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: app-debug-apk
+          path: appsrc/app/build/outputs/apk/debug/*.apk
+
+      - name: Build Debug AAB
+        run: gradle -p appsrc :app:bundleDebug
+
+      - name: Upload Debug AAB
+        uses: actions/upload-artifact@v4
+        with:
+          name: app-debug-aab
+          path: appsrc/app/build/outputs/bundle/debug/*.aab
